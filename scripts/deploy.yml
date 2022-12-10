@@ -6,7 +6,7 @@
     - subnet-15f5216e
     - subnet-ba22cdd3
     - subnet-005d754a
-  region: ap-northeast-2
+  region: ap-northeast-1
   listener_conf:
     port: 80
     protocol: HTTP

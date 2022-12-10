@@ -1,6 +1,6 @@
 variable "region" {
   description = "region"
-  default     = "ap-northeast-2"
+  default     = "ap-northeast-1"
 }
 
 variable "vpc_cidr_block" {
@@ -26,7 +26,7 @@ variable "num" {
 }
 
 variable "availability_zone" {
-  default     = "ap-northeast-2a"
+  default     = "ap-northeast-1a"
 }
 
 variable "instance_type" {

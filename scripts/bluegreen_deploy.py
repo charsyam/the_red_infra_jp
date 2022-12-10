@@ -13,7 +13,7 @@ ec2_client = boto3.client('ec2')
 
 
 def deploy(deploy_conf):
-    # 1. deploy.yml 에서 설정을 가져온다.
+    # 1. Get Configurations From deploy.yml 
 
     lb_name = deploy_config["lb_name"]
     subnets = deploy_config["subnets"]
@@ -22,7 +22,7 @@ def deploy(deploy_conf):
     asg_conf = deploy_config["asg_conf"]
     listener_conf = deploy_config["listener_conf"]
 
-    # 2. loadbalancer 정보를 가져온다. 없으면 생성한다.
+    # 2. Get loadbalancer Configurations, If it doen't exist then create loadbalancer
     lb = None
     try:
         lbs = get_lbs(elb_client, deploy_config["lb_name"])
@@ -35,7 +35,7 @@ def deploy(deploy_conf):
     lb_arn = lb["LoadBalancerArn"]
     vpc_id = lb["VpcId"]
 
-    # 3. TargetGroups 정보를 가져온다. 없으면 생성한다. 2개를 생성하게 됨
+    # 3. Get TargetGroups Configurations. If it doen't exist then create two TargetGroups.
     tgs_map = {}
     for tg_conf in tgs_conf:
         try:
@@ -46,7 +46,7 @@ def deploy(deploy_conf):
             tgs_map[tg_conf["name"]] = new_tg
         
         
-    # 4. TargetGroups 가중치 정보를 만든다. 
+    # 4. Create TargetGroups Weight Informations.
     tg = tgs_map[deploy_conf["target_tg"]]
     tgs_weights = []
 
@@ -61,8 +61,7 @@ def deploy(deploy_conf):
     tg_arn = tg["TargetGroupArn"]
 
 
-    # 5. LaunchTemplate 을 가져온다.이전 값을 가져와서 해당 값 보다 +1 을 더한 값을
-    #    새로운 LaunchTemplate의 number로 사용한다.
+    # 5. Get LaunchTemplate. set new LaunchTemplate number as old value + 1
 
     tpl_conf = deploy_config["tpl_conf"]
     tpls = get_launch_tpls(ec2_client, tpl_conf["name"])
@@ -77,7 +76,7 @@ def deploy(deploy_conf):
 
     tpl_name = tpl_conf["name"] + f"_{tpl_num_id}"
 
-    # 6. AutoScalingGroup 정보를 가져온다. LaucnchTemplate과 같은 형태로 지난 마지막 값 +1로 이름을 만든다.
+    # 6. Get AutoScalingGroup Configuration. add old value + 1 like LaunchTemplate
     asgs = get_asg(asg_client, asg_conf["name"])
 
     asg_num_id = 1
@@ -89,11 +88,11 @@ def deploy(deploy_conf):
 
     asg_name = asg_conf["name"] + f"_{asg_num_id}"
 
-    # 7. 앞에서 얻은 값으로 새로운 LaucnchTemplate을 만든다.
+    # 7. Create new LaunchTemplate
     tpl = create_launch_tpl(ec2_client, tpl_name, tpl_conf, sgs)
     tpl_id = tpl["LaunchTemplateId"]
 
-    # 8. 변경할 LoadBalancer 의 listener 정보를 가져온다. 없으면 생성한다.
+    # 8. Get LoadBalancer listener information.
     listeners = get_listeners(elb_client, lb_arn)
     listener = None
     if len(listeners) > 0:
@@ -103,7 +102,7 @@ def deploy(deploy_conf):
 
     listener_arn = listener["ListenerArn"]
 
-    # 9. AutoScalingGroup을 생성한다.
+    # 9. Create AutoScalingGroup
     asgs = create_asg(asg_client, tpl_id, tg_arn, asg_name, asg_conf, subnets)
     while True:
         targets = check_target_health(elb_client, tg_arn)
@@ -117,13 +116,13 @@ def deploy(deploy_conf):
 
         time.sleep(5)
 
-    # 10. Listener의 가중치를 변경한다.
+    # 10. Change Listener Weight
     print("change listerner for target group")
     modify_listener(elb_client, listener_conf, listener_arn, tgs_weights)
 
     old_asg_name = asg_conf["name"] + f"_{asg_old_num_id}"
 
-    # Delete ASG
+    # 11. Delete ASG
     while True:
         asg = get_asg(asg_client, old_asg_name)[0]
         size = len(asg["Instances"])
